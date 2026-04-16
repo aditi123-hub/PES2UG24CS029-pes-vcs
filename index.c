@@ -181,11 +181,7 @@ int index_load(Index *index) {
 //   - rename                           : atomically moving the temp file over the old index
 //
 // Returns 0 on success, -1 on error.
-static int cmp_entries(const void *a, const void *b) {
-    const IndexEntry *ea = (const IndexEntry *)a;
-    const IndexEntry *eb = (const IndexEntry *)b;
-    return strcmp(ea->path, eb->path);
-}
+
 
 int index_save(const Index *index) {
     FILE *fp = fopen(".pes/index.tmp", "w");
