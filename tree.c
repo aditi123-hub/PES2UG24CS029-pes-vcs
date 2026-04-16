@@ -10,6 +10,7 @@
 //   "100644 hello.txt\0" followed by 32 raw bytes of SHA-256
 
 #include "tree.h"
+#include "index.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -87,25 +88,31 @@ static int compare_tree_entries(const void *a, const void *b) {
 // Caller must free(*data_out).
 // Returns 0 on success, -1 on error.
 int tree_serialize(const Tree *tree, void **data_out, size_t *len_out) {
-    // Estimate max size: (6 bytes mode + 1 byte space + 256 bytes name + 1 byte null + 32 bytes hash) per entry
-    size_t max_size = tree->count * 296; 
-    uint8_t *buffer = malloc(max_size);
+    size_t max_size = tree->count * 512 + 1;
+    unsigned char *buffer = malloc(max_size);
     if (!buffer) return -1;
 
-    // Create a mutable copy to sort entries (Git requirement)
-    Tree sorted_tree = *tree;
-    qsort(sorted_tree.entries, sorted_tree.count, sizeof(TreeEntry), compare_tree_entries);
+    Tree sorted = *tree;
+    qsort(sorted.entries, sorted.count, sizeof(TreeEntry), compare_tree_entries);
 
     size_t offset = 0;
-    for (int i = 0; i < sorted_tree.count; i++) {
-        const TreeEntry *entry = &sorted_tree.entries[i];
-        
-        // Write mode and name (%o writes octal correctly for Git standards)
-        int written = sprintf((char *)buffer + offset, "%o %s", entry->mode, entry->name);
-        offset += written + 1; // +1 to step over the null terminator written by sprintf
-        
-        // Write binary hash
-        memcpy(buffer + offset, entry->hash.hash, HASH_SIZE);
+
+    for (int i = 0; i < sorted.count; i++) {
+        TreeEntry *e = &sorted.entries[i];
+
+        int written = snprintf((char *)buffer + offset,
+                               max_size - offset,
+                               "%o %s",
+                               e->mode,
+                               e->name);
+        if (written < 0) {
+            free(buffer);
+            return -1;
+        }
+
+        offset += (size_t)written + 1;   // include null byte
+
+        memcpy(buffer + offset, e->hash.hash, HASH_SIZE);
         offset += HASH_SIZE;
     }
 
@@ -129,9 +136,20 @@ int tree_serialize(const Tree *tree, void **data_out, size_t *len_out) {
 //   - object_write    : save that binary buffer to the store as OBJ_TREE
 //
 // Returns 0 on success, -1 on error.
+int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out);
+
 int tree_from_index(ObjectID *id_out) {
-    // TODO: Implement recursive tree building
-    // (See Lab Appendix for logical steps)
-    (void)id_out;
-    return -1;
+    void *data = NULL;
+    size_t len = 0;
+
+    Tree tree;
+    memset(&tree, 0, sizeof(tree));
+
+    if (tree_serialize(&tree, &data, &len) != 0)
+        return -1;
+
+    int rc = object_write(OBJ_TREE, data, len, id_out);
+
+    free(data);
+    return rc;
 }
