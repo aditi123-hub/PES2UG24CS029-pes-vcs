@@ -137,6 +137,8 @@ int tree_serialize(const Tree *tree, void **data_out, size_t *len_out) {
 //
 // Returns 0 on success, -1 on error.
 int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out);
+if (index.count > MAX_TREE_ENTRIES)
+    index.count = MAX_TREE_ENTRIES;
 
 int tree_from_index(ObjectID *id_out) {
     void *data = NULL;
