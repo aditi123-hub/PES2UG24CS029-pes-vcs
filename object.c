@@ -115,7 +115,7 @@ int object_write(ObjectType type, const void *data, size_t len, ObjectID *id_out
         return 0;
     }
 
-    char path[512], dir[512], tmp[512];
+    char path[512], dir[512], tmp[1024];
     object_path(id_out, path, sizeof(path));
 
     strncpy(dir, path, sizeof(dir));
